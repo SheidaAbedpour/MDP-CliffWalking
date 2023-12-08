@@ -88,13 +88,13 @@ class CliffWalking(CliffWalkingEnv):
         if self.is_hardmode:
             match action:
                 case 0:
-                    action = np.random.choice([0, 1, 3], p=[1 / 3, 1 / 3, 1 / 3])
+                    action = np.random.choice([0, 1, 3], p=[0.8, 0.1, 0.1])
                 case 1:
-                    action = np.random.choice([0, 1, 2], p=[1 / 3, 1 / 3, 1 / 3])
+                    action = np.random.choice([0, 1, 2], p=[0.1, 0.8, 0.1])
                 case 2:
-                    action = np.random.choice([1, 2, 3], p=[1 / 3, 1 / 3, 1 / 3])
+                    action = np.random.choice([1, 2, 3], p=[0.1, 0.8, 0.1])
                 case 3:
-                    action = np.random.choice([0, 2, 3], p=[1 / 3, 1 / 3, 1 / 3])
+                    action = np.random.choice([0, 2, 3], p=[0.1, 0.1, 0.8])
 
         return super().step(action)
 
@@ -192,21 +192,99 @@ class CliffWalking(CliffWalkingEnv):
 env = CliffWalking(render_mode="human")
 observation, info = env.reset(seed=30)
 
-# Define the maximum number of iterations
+
+def value_iteration(env, gamma, theta, max_iter):
+    V = np.zeros(env.nS)
+    P = np.zeros(env.nS)
+
+    iter = 0
+    for iter in range(max_iter):
+        updated_V = np.zeros(env.nS)
+        delta = 0
+        for s in range(env.nS):
+            if s == env.nS - 1: V[s] = 1000
+            else:
+                Q = np.zeros(env.nA)
+                expected_value = 0
+                for a in range(env.nA):
+                    for prob, next_state, reward, _ in env.P[s][a]:
+                        expected_value += prob * (reward + gamma * V[next_state])
+                    Q[a] = expected_value
+                updated_V[s] = np.max(Q)
+                pi = np.argmax(Q)
+                P[s] = pi
+                env.step(pi)
+
+            # check for convergence
+            delta = max(abs(V[s] - updated_V[s]), delta)
+            if delta < theta:
+                break
+
+        V = updated_V
+
+    return iter, V, P
+
+
+#Define the maximum number of iterations
 max_iter_number = 1000
 
-for __ in range(max_iter_number):
-    # TODO: Implement the agent policy here
-    # Note: .sample() is used to sample random action from the environment's action space
+gamma = 0.8  # Discount factor
+theta = 1e-3  # Convergence threshold
+iter, Policy, Values = value_iteration(env, gamma, theta, max_iter=max_iter_number)
+print("#iterations: ", iter, "\nPolicy:\n", Policy, "\nValues:\n", Values)
 
-    # Choose an action (Replace this random action with your agent's policy)
-    action = env.action_space.sample()
+# for __ in range(max_iter_number):
+#
+#     # Choose an action
+#     action = UP
+#
+#     # Perform the action and receive feedback from the environment
+#     next_state, reward, done, truncated, info = env.step(action)
+#
+#     if done or truncated:
+#         observation, info = env.reset()
+#
+# # Close the environment
+# env.close()
 
-    # Perform the action and receive feedback from the environment
-    next_state, reward, done, truncated, info = env.step(action)
+def value_iteration(env, gamma=1.0, max_iters=1000):
+    # Initialize value function
+    V = np.zeros(env.observation_space.n)
 
-    if done or truncated:
-        observation, info = env.reset()
+    for _ in range(max_iters):
+        delta = 0
 
-# Close the environment
-env.close()
+        for s in range(env.observation_space.n):
+            v = V[s]
+            q_values = []
+
+            for a in range(env.action_space.n):
+                q_value = 0
+
+                next_state, reward, done, truncated, info = env.step(a)
+                q_value += (reward + gamma * V[next_state])
+
+                q_values.append(q_value)
+
+            V[s] = max(q_values)
+            delta = max(delta, abs(v - V[s]))
+
+            print(V)
+
+        if delta < 1e-6:
+            break
+
+    # Extract optimal Q-values
+    Q = np.zeros((env.observation_space.n, env.action_space.n))
+    for s in range(env.observation_space.n):
+        for a in range(env.action_space.n):
+            q_value = 0
+
+            next_state, reward, done, truncated, info = env.step(a)
+            q_value += (1/3) * (reward + gamma * V[next_state])
+
+            Q[s, a] = q_value
+
+    return V, Q
+
+#value_iteration(env, gamma=1.0, max_iters=1000)
