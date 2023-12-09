@@ -221,10 +221,34 @@ def value_iteration(env, gamma, theta, max_itr):
                         best_action = a
 
                 V[s] = max_value
-                P[s] = best_action
 
                 # check for convergence
                 delta = max(abs(V[s] - previous_value), delta)
+
+
+    for s in range(env.nS):
+        if s == goal_index:
+            continue
+
+        max_value = -np.inf
+        best_action = None
+
+        for a in range(env.nA):
+            value = 0
+
+            for prob, next_state, reward, _ in env.P[s][a]:
+                value += prob * (reward + gamma * V[next_state])
+
+            if value > max_value:
+                max_value = value
+                best_action = a
+
+        P[s] = best_action
+
+
+        if np.random.rand() < theta:
+            random_action = np.random.choice(env.nA)
+            P[s] = np.eye(env.nA)[random_action]
 
     return iter, V, P
 
@@ -232,7 +256,7 @@ def value_iteration(env, gamma, theta, max_itr):
 #Define the maximum number of iterations
 max_iter_number = 1000
 
-gamma = 0.7  # Discount factor
+gamma = 0.8  # Discount factor
 theta = 1e-6  # Convergence threshold
 iter, Values, Policy = value_iteration(env, gamma, theta, max_iter_number)
 print("#iterations: ", iter, "\nPolicy:\n", Policy, "\nValues:\n", Values)
