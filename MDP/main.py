@@ -88,13 +88,13 @@ class CliffWalking(CliffWalkingEnv):
         if self.is_hardmode:
             match action:
                 case 0:
-                    action = np.random.choice([0, 1, 3], p=[0.8, 0.1, 0.1])
+                    action = np.random.choice([0, 1, 3], p=[1 / 3, 1 / 3, 1 / 3])
                 case 1:
-                    action = np.random.choice([0, 1, 2], p=[0.1, 0.8, 0.1])
+                    action = np.random.choice([0, 1, 2], p=[1 / 3, 1 / 3, 1 / 3])
                 case 2:
-                    action = np.random.choice([1, 2, 3], p=[0.1, 0.8, 0.1])
+                    action = np.random.choice([1, 2, 3], p=[1 / 3, 1 / 3, 1 / 3])
                 case 3:
-                    action = np.random.choice([0, 2, 3], p=[0.1, 0.1, 0.8])
+                    action = np.random.choice([0, 2, 3], p=[1 / 3, 1 / 3, 1 / 3])
 
         return super().step(action)
 
@@ -193,45 +193,77 @@ env = CliffWalking(render_mode="human")
 observation, info = env.reset(seed=30)
 
 
-def value_iteration(env, gamma, theta, max_iter):
+def value_iteration(env, gamma, theta, max_itr):
     V = np.zeros(env.nS)
+    goal_i, goal_j = env.terminal_state
+    goal_index = 12 * goal_i + goal_j
+    V[goal_index] = 100
     P = np.zeros(env.nS)
+    delta = theta + 1
 
     iter = 0
-    for iter in range(max_iter):
-        updated_V = np.zeros(env.nS)
+    while delta >= theta and iter < max_itr:
+        iter += 1
         delta = 0
+
         for s in range(env.nS):
-            if s == env.nS - 1: V[s] = 1000
-            else:
-                Q = np.zeros(env.nA)
+            if s != goal_index:
+                max_value = -np.inf
+                best_action = None
                 expected_value = 0
+                previous_value = V[s]
+
                 for a in range(env.nA):
                     for prob, next_state, reward, _ in env.P[s][a]:
                         expected_value += prob * (reward + gamma * V[next_state])
-                    Q[a] = expected_value
-                updated_V[s] = np.max(Q)
-                pi = np.argmax(Q)
-                P[s] = pi
-                env.step(pi)
+                    if expected_value > max_value:
+                        max_value = expected_value
+                        best_action = a
 
-            # check for convergence
-            delta = max(abs(V[s] - updated_V[s]), delta)
-            if delta < theta:
-                break
+                V[s] = max_value
 
-        V = updated_V
+                # check for convergence
+                delta = max(abs(V[s] - previous_value), delta)
+        print("iter: ", iter, "\n", V)
+
+
+
+    # P = np.zeros((env.nS, env.nA))
+    # for s in range(env.nS):
+    #     if s == env.terminal_state:
+    #         continue
+    #
+    #     max_value = -np.inf
+    #     best_action = None
+    #
+    #     for a in range(env.nA):
+    #         value = 0
+    #
+    #         for prob, next_state, reward, _ in env.P[s][a]:
+    #             value += prob * (reward + gamma * V[next_state])
+    #
+    #         if value > max_value:
+    #             max_value = value
+    #             best_action = a
+    #
+    #     P[s, best_action] = 1
+    #
+    #     # Exploration-Exploitation Trade-off
+    #     if np.random.rand() < epsilon:
+    #         random_action = np.random.choice(env.nA)
+    #         P[s] = np.eye(env.nA)[random_action]
 
     return iter, V, P
 
 
 #Define the maximum number of iterations
-max_iter_number = 1000
+max_iter_number = 100
 
-gamma = 0.8  # Discount factor
+gamma = 0.75  # Discount factor
 theta = 1e-3  # Convergence threshold
-iter, Policy, Values = value_iteration(env, gamma, theta, max_iter=max_iter_number)
+iter, Values, Policy = value_iteration(env, gamma, theta, max_iter_number)
 print("#iterations: ", iter, "\nPolicy:\n", Policy, "\nValues:\n", Values)
+
 
 # for __ in range(max_iter_number):
 #
@@ -246,45 +278,3 @@ print("#iterations: ", iter, "\nPolicy:\n", Policy, "\nValues:\n", Values)
 #
 # # Close the environment
 # env.close()
-
-def value_iteration(env, gamma=1.0, max_iters=1000):
-    # Initialize value function
-    V = np.zeros(env.observation_space.n)
-
-    for _ in range(max_iters):
-        delta = 0
-
-        for s in range(env.observation_space.n):
-            v = V[s]
-            q_values = []
-
-            for a in range(env.action_space.n):
-                q_value = 0
-
-                next_state, reward, done, truncated, info = env.step(a)
-                q_value += (reward + gamma * V[next_state])
-
-                q_values.append(q_value)
-
-            V[s] = max(q_values)
-            delta = max(delta, abs(v - V[s]))
-
-            print(V)
-
-        if delta < 1e-6:
-            break
-
-    # Extract optimal Q-values
-    Q = np.zeros((env.observation_space.n, env.action_space.n))
-    for s in range(env.observation_space.n):
-        for a in range(env.action_space.n):
-            q_value = 0
-
-            next_state, reward, done, truncated, info = env.step(a)
-            q_value += (1/3) * (reward + gamma * V[next_state])
-
-            Q[s, a] = q_value
-
-    return V, Q
-
-#value_iteration(env, gamma=1.0, max_iters=1000)
