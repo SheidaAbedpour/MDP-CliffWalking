@@ -193,72 +193,73 @@ env = CliffWalking(render_mode="human")
 observation, info = env.reset(seed=30)
 
 
-def value_iteration(env, gamma, theta, max_itr):
+
+def policy_iteration(env, gamma, theta, max_itr):
     V = np.zeros(env.nS)
     goal_i, goal_j = env.terminal_state
     goal_index = 12 * goal_i + goal_j
     V[goal_index] = 1000
-    P = np.zeros(env.nS)
-    delta = theta + 1
+    P = np.zeros(env.nS, dtype=int)
 
-    iter = 0
-    while delta >= theta and iter < max_itr:
-        iter += 1
-        delta = 0
+    for _ in range(max_itr):
+        # Policy Evaluation
+        while True:
+            delta = 0
+
+            for s in range(env.nS):
+                if s == goal_index:
+                    continue
+
+                v = V[s]
+                a = P[s]
+                expected_value = 0
+
+                for prob, next_state, reward, _ in env.P[s][a]:
+                    expected_value += prob * (reward + gamma * V[next_state])
+
+                V[s] = expected_value
+                delta = max(delta, abs(v - V[s]))
+
+            if delta < theta:
+                break
+
+        # Policy Improvement
+        policy_stable = True
 
         for s in range(env.nS):
-            if s != goal_index:
-                max_value = -np.inf
-                best_action = None
-                expected_value = 0
-                previous_value = V[s]
+            if s == goal_index:
+                continue
 
-                for a in range(env.nA):
-                    for prob, next_state, reward, _ in env.P[s][a]:
-                        expected_value += prob * (reward + gamma * V[next_state])
-                    if expected_value > max_value:
-                        max_value = expected_value
-                        best_action = a
+            old_action = P[s]
+            max_value = -np.inf
+            best_action = None
 
-                V[s] = max_value
+            for a in range(env.nA):
+                value = 0
 
-                # check for convergence
-                delta = max(abs(V[s] - previous_value), delta)
+                for prob, next_state, reward, _ in env.P[s][a]:
+                    value += prob * (reward + gamma * V[next_state])
 
+                if value > max_value:
+                    max_value = value
+                    best_action = a
 
-    for s in range(env.nS):
-        if s == goal_index:
-            continue
+            P[s] = best_action
 
-        max_value = -np.inf
-        best_action = None
+            if old_action != P[s]:
+                policy_stable = False
 
-        for a in range(env.nA):
-            value = 0
+        if policy_stable:
+            break
 
-            for prob, next_state, reward, _ in env.P[s][a]:
-                value += prob * (reward + gamma * V[next_state])
-
-            if value > max_value:
-                max_value = value
-                best_action = a
-
-        P[s] = best_action
-
-
-        if np.random.rand() < theta:
-            random_action = np.random.choice(env.nA)
-            P[s] = np.eye(env.nA)[random_action]
-
-    return iter, V, P
-
+    return V, P
 
 #Define the maximum number of iterations
 max_iter_number = 1000
 
 gamma = 0.8  # Discount factor
 theta = 1e-6  # Convergence threshold
-iter, Values, Policy = value_iteration(env, gamma, theta, max_iter_number)
+Values, Policy = policy_iteration(env, gamma, theta, max_iter_number)
 print("#iterations: ", iter, "\nPolicy:\n", Policy, "\nValues:\n", Values)
 
 
