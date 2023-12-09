@@ -197,7 +197,7 @@ def value_iteration(env, gamma, theta, max_itr):
     V = np.zeros(env.nS)
     goal_i, goal_j = env.terminal_state
     goal_index = 12 * goal_i + goal_j
-    V[goal_index] = 100
+    V[goal_index] = 1000
     P = np.zeros(env.nS)
     delta = theta + 1
 
@@ -221,60 +221,41 @@ def value_iteration(env, gamma, theta, max_itr):
                         best_action = a
 
                 V[s] = max_value
+                P[s] = best_action
 
                 # check for convergence
                 delta = max(abs(V[s] - previous_value), delta)
-        print("iter: ", iter, "\n", V)
-
-
-
-    # P = np.zeros((env.nS, env.nA))
-    # for s in range(env.nS):
-    #     if s == env.terminal_state:
-    #         continue
-    #
-    #     max_value = -np.inf
-    #     best_action = None
-    #
-    #     for a in range(env.nA):
-    #         value = 0
-    #
-    #         for prob, next_state, reward, _ in env.P[s][a]:
-    #             value += prob * (reward + gamma * V[next_state])
-    #
-    #         if value > max_value:
-    #             max_value = value
-    #             best_action = a
-    #
-    #     P[s, best_action] = 1
-    #
-    #     # Exploration-Exploitation Trade-off
-    #     if np.random.rand() < epsilon:
-    #         random_action = np.random.choice(env.nA)
-    #         P[s] = np.eye(env.nA)[random_action]
 
     return iter, V, P
 
 
 #Define the maximum number of iterations
-max_iter_number = 100
+max_iter_number = 1000
 
-gamma = 0.75  # Discount factor
-theta = 1e-3  # Convergence threshold
+gamma = 0.7  # Discount factor
+theta = 1e-6  # Convergence threshold
 iter, Values, Policy = value_iteration(env, gamma, theta, max_iter_number)
 print("#iterations: ", iter, "\nPolicy:\n", Policy, "\nValues:\n", Values)
 
 
-# for __ in range(max_iter_number):
-#
-#     # Choose an action
-#     action = UP
-#
-#     # Perform the action and receive feedback from the environment
-#     next_state, reward, done, truncated, info = env.step(action)
-#
-#     if done or truncated:
-#         observation, info = env.reset()
-#
-# # Close the environment
-# env.close()
+start_i, start_j = env.start_state
+start_index = 12 * start_i + start_j
+next_state = start_index
+
+end_i, end_j = env.terminal_state
+end_index = 12 * end_i + end_j
+
+while(next_state != end_index):
+
+    # Choose an action
+    action = Policy[next_state]
+
+    # Perform the action and receive feedback from the environment
+    next_state, reward, done, truncated, info = env.step(action)
+
+    if done or truncated:
+        observation, info = env.reset()
+
+
+# Close the environment
+env.close()
